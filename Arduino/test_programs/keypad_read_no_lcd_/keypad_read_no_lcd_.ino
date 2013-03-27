@@ -89,8 +89,8 @@ byte p100[8] = {
 //initialize the Keypad library
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
-char a[3]={0,0,0};
-char Num2[2]={0,0};
+byte a[3]={'x','x','x'};
+byte Num2[2]={0,0};
 
 void setup(){
   Serial.begin(9600);
@@ -118,6 +118,7 @@ void start(){
   lcd.setCursor(0,1);
   lcd.print(">");
   lcd.blink();
+  READ_KEYPAD();
 }  //start
 
 void decChar(){
@@ -157,40 +158,52 @@ void progBar(){
 }  //progBar
 
 void READ_KEYPAD(){
-  //char waitForKey();
+  Serial.println("read from keypad");
   char key = keypad.getKey();
+  keypad.waitForKey();
   if (key != NO_KEY){
     switch(key){
       delay(70);
       case 'A':
+        key = NO_KEY;
         delay(50);
-        lcd.clear();
-        lcd.print("Enter Num1: ");
-        delay(20);
-        for( int i = 0; i<3 ; i++ ){
-          char waitForKey();
-          if (key != NO_KEY){
-            if(key == 'A' || key == 'B' || key == 'C' ||
-                key == 'D' || key == '*' || key == '#' ){
-                  lcd.setCursor(0,1);
-                  lcd.print("*GET SERIOUS*");
-                  delay(500);
-                  lcd.write("                ");
-                  lcd.setCursor(11,0);
-                }else{
-                  lcd.print(key);
-                  a[i]=key;
-                }
-            }
-          }  //for
-          break;
+        getNum();
+          //if
+          Serial.println("BEFORE BREAK");
+          //break;
         }  //switch
-        for( int i = 0 ; i<3 ; i++ )
-          Serial.print(a[i]);
     }
+    Serial.println("read from keypa23d");
     //Serial.print(key);
 }  //READ_KEYPAD
 
+void getNum(){
+  char pkey = NO_KEY;
+  pkey = keypad.getKey();
+  lcd.clear();
+  lcd.print("En%ter Num1:");
+  for( unsigned i = 0 ; i<3 ; i++){
+    if (pkey != NO_KEY){
+      Serial.println(pkey);
+      if(pkey == 'A' || pkey == 'B' || pkey == 'C' ||
+          pkey == 'D' || pkey == '*' || pkey == '#' ){
+            lcd.setCursor(0,1);
+            lcd.print("*GET SERIOUS*");
+            delay(500);
+            lcd.clear();
+            lcd.print("Enter Num1:");
+          }else{
+            Serial.println(pkey);
+            delay(30);
+            Serial.print("KEY!!");
+            //lcd.print(key);
+            //a[i]=key;
+          }
+          Serial.print("outside of if");
+      }
+    }
+    Serial.print("outside of");
+}
 void Clear(){
  lcd.setCursor(1,0);
  lcd.write("                ");
@@ -203,7 +216,7 @@ void Clear(){
 void loop(){
   T0=millis();
   //Serial.println("loop");
-  READ_KEYPAD();
+  
   T1=millis();
   //Serial.print(T1-T0);
 }  //loop
