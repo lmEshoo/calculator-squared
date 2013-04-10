@@ -12,7 +12,7 @@ Created by:
 - ...
 - ...
 
-##PROJECT Hardware Contents##
+##Calculator Hardware Contents##
 
 -	One large 16x2 Character Display for showing context-relevant title information
 -	4x4 Matrix Membrane Keypad for number inputs
@@ -21,8 +21,11 @@ Created by:
 
 ##System Operation Scheme##
 
-1.	Welcome screen telling hello to user
-2.	User either can hit the buttons or start typing the numbers then function then number
+1. 	Welcome screen telling hello to user
+	- Welcome screen
+	- Pierce Math w/ thumbs up & loading bar
+	- user options
+2.	User then writes number of degrees how precision then operator then number in radians
 3.	After hitting Enter, #, result will show on the second row of LCD
 4.	3 seconds later time will be calculated and displayed of how long it took to compute
 5.	3 seconds later will go back and be ready to compute some more!

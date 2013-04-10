@@ -1,19 +1,10 @@
 /*
- * Lini Mestar
+ * Lini Mestar 
+ * Matt Remik for Taylor Series & Cordic method Functions
  * Calculator Mathematical Association of America Spring 2013
  * Version 1.0b
- *
- * FIXED: this version does not working with A,B,C, and D
- * FIXED: debouncing keys
- * FIXED: THIS VERSION DOES NOT WORK WITH (-) VALUES
- * FIXED: PRECISION lcd.print(1.23456, 4) gives "1.2346"
- * FIXED: THIS VERSION DOES NOT USE EXTRA PINS
- * FIXED: SINE BUTTON DEBOUNCING
- * THIS VERSION DOES NOT INPUT (.)
- * FIXED: SHOWING 122 INSTEAD 12
- * FIXED: THIS VERSION DOES NOT SHOW TOTAL TIME
- * * == )
- * THIS VERSION CAN DOES + - * / sin cos tan
+ * THIS VERSION  + - * / Tsin Tcos Tsin Csin Ccos Ctan sqrt log10
+ * FIXED: take more than 4 digits (max is 10)
 */
 
 //Libraries
@@ -70,32 +61,34 @@ Keypad keypad = Keypad( makeKeymap(keys),
 boolean beenHere=false,
   opAddition=false, opSubtract=false, 
   opMultiply=false, opDivide=false,
-  opSine=false, opCosine=false,
-  opTan=false;
+  opCsin=false, opCcos=false, opCtan=false,
+  opTsin=false, opTcos=false, opTtan=false,
+  opNLog=false, opLogBTen=false, opSQRT=false, opE=false;
 
 //Time Setup
 unsigned long T0, T1;
+unsigned long tT0, tT1;
 
 const double pi = 3.14159265358979323846;
-//const int ledPin =  12;
+const double e  = 2.718281828459045;
 
 //Numbers Inputed
-unsigned int num1=0, num2=0;
-unsigned int num3=0;
+int long num1=0, num2=0;
+int long num3=0;
 
-Bounce bouncer  = Bounce( BUTTON0 , 5 );
-Bounce bouncer1 = Bounce( BUTTON1 , 5 );
-Bounce bouncer2 = Bounce( BUTTON2 , 5 );
-Bounce bouncer3 = Bounce( BUTTON3 , 5 );
-Bounce bouncer4 = Bounce( BUTTON4 , 5 );
-Bounce bouncer5 = Bounce( BUTTON5 , 5 );
-Bounce bouncer6 = Bounce( BUTTON6 , 5 );
-Bounce bouncer7 = Bounce( BUTTON7 , 5 );
-Bounce bouncer8 = Bounce( BUTTON8 , 5 );
-Bounce bouncer9 = Bounce( BUTTON9 , 5 );
+Bounce bouncer  = Bounce( BUTTON0 , 25 );
+Bounce bouncer1 = Bounce( BUTTON1 , 25 );
+Bounce bouncer2 = Bounce( BUTTON2 , 25 );
+Bounce bouncer3 = Bounce( BUTTON3 , 25 );
+Bounce bouncer4 = Bounce( BUTTON4 , 25 );
+Bounce bouncer5 = Bounce( BUTTON5 , 25 );
+Bounce bouncer6 = Bounce( BUTTON6 , 25 );
+Bounce bouncer7 = Bounce( BUTTON7 , 25 );
+Bounce bouncer8 = Bounce( BUTTON8 , 25 );
+Bounce bouncer9 = Bounce( BUTTON9 , 25 );
 
 // LCD Special Characters
-byte like[8]= {
+byte like[8] = {
   B00000,
   B00100,
   B00100,
@@ -103,6 +96,35 @@ byte like[8]= {
   B11001,
   B11001,
   B11111,
+};
+byte squared[8] = {
+  B01100,
+  B00010,
+  B00100,
+  B01000,
+  B01110,
+  B00000,
+  B00000,
+};
+byte baseTen[8] = {
+  B00000,
+  B00000,
+  B00000,
+  B00000,
+  B10010,
+  B10101,
+  B10101,
+  B10010
+};
+byte squareRoot[8] = {
+  B00111,
+  B00100,
+  B00100,
+  B00100,
+  B00100,
+  B10100,
+  B01100,
+  B00100
 };
 byte p20[8] = {
   B10000,
@@ -150,15 +172,68 @@ byte p100[8] = {
   B11111,
 };
 
+double angles[] =  {  //len = 28 //arctangents
+             0.78539816339745,   0.46364760900081,
+             0.24497866312686,   0.12435499454676,
+             0.06241880999596,   0.03123983343027,
+             0.01562372862048,   0.00781234106010,
+             0.00390623013197,   0.00195312251648,
+             0.00097656218956,   0.00048828121119,
+             0.00024414062015,   0.00012207031189,
+             0.00006103515617,   0.00003051757812,
+             0.00001525878906,   0.00000762939453,
+             0.00000381469727,   0.00000190734863,
+             0.00000095367432,   0.00000047683716,
+             0.00000023841858,   0.00000011920929,
+             0.00000005960464,   0.00000002980232,
+             0.00000001490116,   0.00000000745058   };
+  
+double Kvalues[] = {  //len = 24  //k values
+             0.70710678118655,   0.63245553203368,
+             0.61357199107790,   0.60883391251775,
+             0.60764825625617,   0.60735177014130,
+             0.60727764409353,   0.60725911229889,
+             0.60725447933256,   0.60725332108988,
+             0.60725303152913,   0.60725295913894,
+             0.60725294104140,   0.60725293651701,
+             0.60725293538591,   0.60725293510314,
+             0.60725293503245,   0.60725293501477,
+             0.60725293501035,   0.60725293500925,
+             0.60725293500897,   0.60725293500890,
+             0.60725293500889,   0.60725293500888   };
+                                      
+
 void setup(){
-  keypad.setDebounceTime(150);  //keypad debounce
+  Serial.begin(9600);
+  keypad.setDebounceTime(150);
   decChar();
   initialButtons();
   lcd.begin(16, 2);
-  //start();
+  lcd.setCursor(0,0);
+  lcd.print("Welcome to");
+  lcd.setCursor(0,1);
+  lcd.print("   Calculator");
+  lcd.setCursor(13,1);
+  lcd.write(6);
+  delay(2000);
+  lcd.clear();
+  start();
   lcd.setCursor(0,0);
   lcd.blink();
 }  //setup
+
+void decChar(){
+  //Setup LCD Special Characters
+  lcd.createChar(0, p20);
+  lcd.createChar(1, p40);
+  lcd.createChar(2, p60);
+  lcd.createChar(3, p80);
+  lcd.createChar(4, p100);
+  lcd.createChar(5, like);
+  lcd.createChar(6, squared);
+  lcd.createChar(7, baseTen);
+  lcd.createChar(8,squareRoot);
+}  //decChar
 
 void initialButtons(){
   pinMode(BUTTON0,INPUT);
@@ -172,6 +247,7 @@ void initialButtons(){
   pinMode(BUTTON8,INPUT);
   pinMode(BUTTON9,INPUT);
 }  //initialButtons
+
 void start(){
   lcd.print(" PIERCE MATH ");
   lcd.write(5);
@@ -186,25 +262,30 @@ void start(){
   options();
   lcd.clear();
 }  //start
-void decChar(){
-  //Setup LCD Special Characters
-  lcd.createChar(0, p20);
-  lcd.createChar(1, p40);
-  lcd.createChar(2, p60);
-  lcd.createChar(3, p80);
-  lcd.createChar(4, p100);
-  lcd.createChar(5, like);
-}  //decChar
+
 void options(){
   lcd.setCursor(1,0);
-  lcd.print("  A) ADD  C) MULTIPY ");
+  lcd.print("  A)ADD  C)MULTIPY  B1)Tsin");
   lcd.setCursor(1,1);
-  lcd.print("  B) SUB. D) DIVIDE ");
-  for( int pos = 0; pos<22 ; pos++){
-    lcd.scrollDisplayLeft();
-    delay(550);
-  }
+  lcd.print("  B)SUB. D)DIVIDE   B6)Csin");
+  scroll();
+  lcd.clear();
+  lcd.setCursor(1,0);
+  lcd.print("  B2)Tcos  B3)Ttan  B4)Log(  B5)");
+  lcd.write(8);
+  lcd.print("(");
+  lcd.setCursor(1,1);
+  lcd.print("  B7)Ccos  B8)Ctan");
+  scroll();
 }  //options
+
+void scroll(){
+  for( int pos = 0; pos<26 ; pos++){
+  lcd.scrollDisplayLeft();
+  delay(225);
+  }
+}  //scroll
+
 void progBar(){
  lcd.setCursor(0,1);
  lcd.print("                ");
@@ -212,13 +293,12 @@ void progBar(){
    for (int j=0; j<5; j++){
       lcd.setCursor(i, 1);   
       lcd.write(j);
-      delay(80);
+      delay(50);
    }
  }
 }  //progBar
-/*******************************
-* KEYS AND BUTTONS WHEN PRESSED
-********************************/
+
+// CHECKING IF BUTTONS PRESSED
 void buttonUpdate(){
   bouncer.update();
   bouncer1.update();
@@ -231,6 +311,7 @@ void buttonUpdate(){
   bouncer8.update();
   bouncer9.update();
 }  //buttonUpdate
+
 void loop()
 {
    buttonUpdate();
@@ -249,16 +330,38 @@ void loop()
         }else if(beenHere && opDivide){
           num2 = (num2*10) + int(key-'0');
           lcd.print(num2);
-        }else if(opSine || opCosine || opTan){
-          lcd.setCursor(4,0);
+        }else if(beenHere && opLogBTen){
+          lcd.setCursor(5,0);
+          num2 = (num2*10) + int(key-'0');
+          lcd.print(num2);
+        }else if(beenHere && opSQRT){
+          lcd.setCursor(2,0);
+          num2 = (num2*10) + int(key-'0');
+          lcd.print(num2);
+        }else if( (beenHere && opNLog)
+              ||  (beenHere && opE)  )
+             {
+               lcd.setCursor(3,0);
+               num2 = (num2*10) + int(key-'0');
+               lcd.print(num2);
+        }else if( (beenHere && opTsin)
+                || (beenHere && opTcos) 
+                || (beenHere && opCtan)
+                || (beenHere && opCcos)
+                || (beenHere && opCsin)
+                || (beenHere && opTtan) )
+                {
+          lcd.setCursor(8,0);
           num3 = (num3*10) + int(key-'0');
           lcd.print(num3);
         }else if(beenHere){
           num2 = (num2*10) + int(key-'0');
+          lcd.setCursor(8,0);
           lcd.print(num2);
         }
       }
       else if(key=='A'){
+         //lcd.setCursor(4,0);
          lcd.print("+");
          beenHere=true;
          opAddition=true;
@@ -288,143 +391,400 @@ void loop()
                multiply();         
              }else if(opDivide){
                divide();
-             }else if(opSine){
-               sine();
-             }else if(opCosine){
-               cosine();
-             }else if(opTan){
-               tangent();
+             }else if(opCsin){
+               lcd.print(C_SIN(double(num3), num1),13);
+               delay(DELAY);
+               showTime();
+             }else if(opCcos){
+               lcd.print(C_COS(double(num3), num1),13);
+               delay(DELAY);
+               showTime();
+             }else if(opTtan){
+               lcd.print(T_TAN(double(num3), num1),13);
+               delay(DELAY);
+               showTime();
+             }else if(opTsin){
+               lcd.print(T_SIN(double(num3), num1),13);
+               delay(DELAY);
+               showTime();
+             }else if(opTcos){
+               lcd.print(T_COS(double(num3), num1),13);
+               delay(DELAY);
+               showTime();
+             }else if(opCtan){
+               double tangent;
+               lcd.print(C_TAN(double(num3), num1),13);
+               delay(DELAY);
+               lcd.clear();
+               lcd.setCursor(0,0);
+               lcd.print("Time:");
+               lcd.setCursor(0,1);
+               lcd.print(tT1-tT0);
+               lcd.print(" Milli Sec.");
+               delay(DELAY);
+             }else if( opLogBTen ){
+               lcd.print(log(double(num2))/log(10),13);
+               delay(DELAY);
+             }else if( opNLog ){
+               lcd.print(log(double(num2)),13);
+               delay(DELAY);
+             }else if( opSQRT ){
+               lcd.print(sqrt(double(num2)),13);
+               delay(DELAY);
+             }else if( opE ){
+               lcd.print(pow(e,double(num2)),13);
+               delay(DELAY);
              }
             lcd.clear();
             lcd.setCursor(0,0);
             lcd.blink();
             num1= num2= num3= 0;
             beenHere=false;
-            opAddition= opSubtract= opMultiply=opSine= false;
-            opDivide=opCosine=opTan =false;
+            opAddition= opSubtract= false;
+            opMultiply=opCsin= false;
+            opDivide=opCcos=false;
+            opTtan=opTsin=opTcos=opCtan= false;
+            opNLog=opLogBTen=opSQRT=opE=false;
        }
-   /*************************************
+   /***************************************
    * EXTERNAL BUTTON READING W/ DEBOUNCING
-   **************************************/
+   ****************************************/
    }else if ( bouncer.read() ){
-     delay(250);
-     lcd.print("sin(");
+     delay(150);
+     lcd.print("Tsin(");
      beenHere=true;
-     opSine=true;
+     opTsin=true;
    }else if ( bouncer1.read() ){
-     delay(250);
-     lcd.print("cos(");
+     delay(150);
+     lcd.print("Tcos(");
      beenHere=true;
-     opCosine=true;
+     opTcos=true;
    }else if ( bouncer2.read() ){
-     delay(250);
-     lcd.print("tan(");
+     delay(150);
+     lcd.print("Ttan(");
      beenHere=true;
-     opTan=true;
-   }
+     opTtan=true;
+   }else if ( bouncer3.read() ){
+     //log base 10
+     delay(150);
+     lcd.print("log");
+     lcd.setCursor(3,0);
+     lcd.write(7);
+     lcd.setCursor(4,0);
+     lcd.print("(");
+     beenHere=true;
+     opLogBTen=true;
+   }/*else if ( bouncer8.read() ){
+     delay(150);
+     lcd.print("ln(");
+     beenHere=true;
+     opNLog=true;
+   }*/else if ( bouncer5.read() ){
+     delay(150);
+     lcd.print("Csin(");
+     beenHere=true;
+     opCsin=true;
+   }else if ( bouncer6.read() ){
+     delay(150);
+     lcd.print("Ccos(");
+     beenHere=true;
+     opCcos=true;
+   }else if ( bouncer7.read() ){
+     delay(150);
+     lcd.print("Ctan(");
+     beenHere=true;
+     opCtan=true;
+   }else if ( bouncer4.read() ){
+     //square root
+     delay(150);
+     lcd.setCursor(0,0);
+     lcd.write(8);
+     lcd.setCursor(1,0);
+     lcd.print("(");
+     beenHere=true;
+     opSQRT=true;
+   }/*else if ( bouncer9.read() ){
+     delay(150);
+     lcd.print("e^(");
+     beenHere=true;
+     opE=true;
+   }*/
 }  //loop
+
 void sum(){
   T0 = millis();
   double sum=num1+num2;
   T1 = millis();
   lcd.print(sum,0);
   delay(DELAY);
-  lcd.print("Time:");
-  showTime();
 }  //sum
+
 void subtract(){
-  T0 = millis();
+ T0 = millis();
  double dif=num1-num2;
  T1 = millis();
  lcd.print(dif,0);
  delay(DELAY);
- showTime();
 }  //subtract
+
 void multiply(){
   T0 = millis();
   double prod=num1*num2;
   T1 = millis();
   lcd.print(prod,0);
   delay(DELAY);
-  showTime();
 }  //multiply
+
 void divide(){
   T0 = millis();
   float blah=double(num1)/double(num2);
   T1 = millis();
   lcd.print(blah,4);
   delay(DELAY);
-  showTime();
 }  //divide
-void sine(){
+
+//taylor Series to calculate cosine
+double T_COS(double x,int degree){
   T0 = millis();
-  lcd.print(sin(num3),4);
-  T1 = millis();
-  delay(DELAY);
-  showTime();
-}  //sine
-void cosine(){
-  T0 = millis();
-  lcd.print(cos(num3),4);
-  T1 = millis();
-  delay(DELAY);
-  showTime();
-}  //cosine
-void tangent(){
-  T0 = millis();
-  lcd.print(tan(num3),4);
-  T1 = millis();
-  delay(DELAY);
-  showTime();
-}  //tangent
-double T_COS( double x,int degree){
   int i = 0;
-  double accumulation = 0;
-  int cosInputArray[4] = {1,0,-1,0};
-  if (x > 1.57079) {
-       x = referenceAngle(x);
-  }
-  while (i < degree){
-    int input = cosInputArray[i%4];
-    accumulation += input*((pow(x, i))/factorial(i)); 
-    i++;
-  }
-  return accumulation;
+    double accumulation = 0;
+    int quadrant = 0;
+    int k = 0;
+    double pi = 3.14159;
+
+    int cosInputArray[4] = {1,0,-1,0};
+     if (x > 1.57079) {
+         k = floor(x/(pi/2));
+         quadrant = 1+(k % 4);
+     }
+     else quadrant = 1;
+     if (x > 1.57079) {
+         x = referenceAngle(x);
+     }
+
+    while (i < degree) {
+        int input = cosInputArray[i%4];
+        accumulation += input*((pow(x, i))/factorial(i));
+        i++;
+    }
+     if (quadrant == 2 || quadrant == 3) {
+         accumulation *= -1;
+     }
+    T1 = millis();
+    return accumulation;
 }  //T_COS
-double T_SIN( double x, int degree){
+
+//taylor Series to calculate sine
+double T_SIN(double x, int degree){
+  T0 = millis();
   int i = 0;
-  double accumulation = 0;
-  int sinInputArray[4] = {0,1,0,-1};
-  if (x > 1.57079) {
+    double accumulation = 0;
+    int quadrant = 0;
+    int k = 0;
+    int sinInputArray[4] = {0,1,0,-1};
+    if (x > 1.57079) {
+     k = floor(x/(pi/2));
+     quadrant = 1+(k % 4);
+    }
+    else quadrant = 1;
+    if (x > 1.57079) {
      x = referenceAngle(x);
-   }
-  while (i < degree) {
+    }
+    while (i < degree) {
     int input = sinInputArray[i%4];
     accumulation += input*((pow(x, i))/factorial(i));
     i++;
-  }
-  return accumulation;
+    }
+    if (quadrant == 3 || quadrant == 4) {
+     accumulation *= -1;
+    }
+    T1 = millis();
+    return accumulation;
 }  //T_SIN
-double factorial(int input ) {
-  double output = 1;
-  for( int i = 2; i <= input; ++ i ) {
-      output *= i;
+//taylor Series to calculate tangent
+double T_TAN(double x, int degree){
+    tT0 = millis();
+    double tangent = 0;
+
+    tangent = (T_SIN(x, degree)/T_COS(x, degree));
+    tT1 = millis();
+    return tangent;
+}
+//cordic to calculate cosine
+double C_COS(double input, int degree){
+  T0 = millis();
+  double kn;
+  double v[] = {1,0};
+  double powerOfTwo;
+  double angle;
+  int i = 0;
+  int sigma;
+  double factor;
+  double temp_v0;
+  int quadrant;
+  int k;
+  
+  if (input > 1.57079) {
+      k = floor(input/(pi/2));
+      quadrant = 1+(k % 4);
   }
-  return output;
+  
+  else quadrant = 1;
+  
+  if (input > 1.57) {
+      input = referenceAngle(input);
+  }
+  
+  if (degree > 24) {
+      kn = Kvalues[23];
+  }
+  
+  else kn = Kvalues[degree];
+      
+  angle = angles[0];
+  powerOfTwo = 1;
+  
+  while (i < degree) {
+      
+      if (input < 0) {
+          sigma = -1;
+      }
+      
+      else {
+          sigma = 1;
+      }
+  
+  factor = sigma * powerOfTwo;
+              
+  temp_v0 = v[0];
+  v[0] = (1*v[0]) + ((-1)*(factor*v[1]));
+  
+  v[1] = (factor*temp_v0) + (1*v[1]);
+  
+  input -= sigma * angle;
+      
+  powerOfTwo = powerOfTwo / 2.0;
+  
+  if (i+2 > 27) {
+      angle = angle / 2.0;
+  }
+  
+  else angle = angles[i+1];
+  
+  i++;
+  }
+  
+  v[0] *= kn;
+  
+  if (quadrant == 2 || quadrant == 3) {
+      v[0] *= -1;
+  }
+  T1 = millis();
+  return v[0];
+}  //C_COS
+
+//cordic to calculate sine
+double C_SIN(double input, int degree){
+  T0 = millis();
+  double kn;
+  double v[] = {1,0};
+  double powerOfTwo;
+  double angle;
+  int i = 0;
+  int sigma;
+  double factor;
+  double temp_v0;
+  int quadrant;
+  int k;
+  
+  if (input > 1.57079) {
+      k = floor(input/(pi/2));
+      quadrant = 1+(k % 4);
+  }
+  
+  else quadrant = 1;
+  
+  if (input > 1.57) {
+      input = referenceAngle(input);
+  }
+  if (degree > 24) {
+      kn = Kvalues[23];
+  }
+  
+  else kn = Kvalues[degree];
+  
+  angle = angles[0];
+  powerOfTwo = 1;
+  
+  while (i < degree) {
+      
+      if (input < 0) {
+          sigma = -1;
+      }
+      
+      else {
+          sigma = 1;
+      }
+
+      factor = sigma * powerOfTwo;
+      
+      temp_v0 = v[0];
+      
+      v[0] = (1*v[0]) + ((-1)*(factor*v[1]));
+      
+      v[1] = (factor*temp_v0) + (1*v[1]);
+      
+      input -= sigma * angle;
+      
+      powerOfTwo = powerOfTwo / 2.0;
+      
+      if (i+2 > 27) {
+          angle = angle / 2.0;
+      }
+      
+      else angle = angles[i+1];
+      
+      i++;
+  }
+  
+  v[1] *= kn;
+  
+  if (quadrant == 3 || quadrant == 4) {
+      v[1] *= -1;
+  }  
+  T1 = millis();
+  return v[1];
+}  //C_SIN
+
+//cordic to calculate tangent
+double C_TAN(double input, int degree){
+    tT0 = millis();
+    double tangent;
+
+    tangent = C_SIN(input, degree) / C_COS(input, degree);
+    tT1 = millis();
+    return tangent;
+    
+}
+
+double factorial(int input){
+  double output = 1;
+  for( double i = 2; i <= input; ++ i ) {
+      output *= i;
+  }return output;
 }  //factorial
-double referenceAngle( double x){
-  int k = 0;
-  int quadrant = 0;
+
+double referenceAngle(double x){
+  int k,quadrant = 0;
   double referenceAngle = 0.0;
   k = floor(x/(pi/2));
   quadrant = k % 4;
-  if (quadrant == 1 || quadrant == 3) {
-      referenceAngle = x - ((pi/2)*k);
-  }else {
-      referenceAngle = (pi/2) - (x - ((pi/2)*k));
-  }
+  if (quadrant == 0 || quadrant == 2){
+    referenceAngle = x - ((pi/2)*k);
+  }else{referenceAngle = (pi/2) - (x - ((pi/2)*k));}
   return referenceAngle;
 }  // referenceAngle
+
 void showTime(){
  lcd.clear();
  lcd.setCursor(0,0);
