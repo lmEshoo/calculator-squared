@@ -1,11 +1,24 @@
 /*
  * Lini Mestar 
- * Matt Remik for Taylor Series & Cordic method Functions
+ * Matt Remick for Taylor Series & Cordic method Functions
  * Calculator Mathematical Association of America Spring 2013
- * Version 1.0b
- * THIS VERSION  + - * / Tsin Tcos Tsin Csin Ccos Ctan sqrt log10
- * FIXED: take more than 4 digits (max is 10)
-*/
+ * Version 1.0c
+ * THIS VERSION  + - * / Tsin Tcos Tsin Csin Ccos Ctan log10 sqrt
+ * FIXED: COMPUTES PI BY PRESSING THE (*) BUTTON
+     - KNOWN BUG: DOESN'T WORK WITH TANGENT
+ * FIXED: TAKE MORE THAN 4 DIGITS (MAX IS 10)
+ * FIXED: NO MORE "JUMP" FOR USER
+ * FIXED: CHECKS FOR VALID INPUT( NO INPUT)
+ * FIXED: AFTER #, DOES NOT BLINK UNTIL NEW OPERATION
+ * FIXED: DEBOUNCING KEYS
+ * FIXED: DOES NOT OUTPUT (-) VALUES
+ * FIXED: PRECISION lcd.print(1.23456, 4) gives "1.2346"
+ * FIXED: DOES NOT SHOW TIME TOOK TO COMPLETE
+ * FIXED: DOES NOT USE EXTRA PINS
+ * FIXED: THIS VERSION DOES NOT WORKING WITH A,B,C & D
+ * FIXED: BUTTON BOUNCING
+ * FIXED: SHOWING 122 INSTEAD 12
+ */
 
 //Libraries
 #include <Keypad.h>
@@ -35,6 +48,9 @@
 
 //delay op showing
 #define DELAY 3000
+#define QHOLD 2000
+#define LCDIGITS 13
+#define DEFPREC 50
 
 //LCD Setup
 LiquidCrystal lcd(EN, RS, D7, D6, D5, D4);
@@ -64,18 +80,24 @@ boolean beenHere=false,
   opCsin=false, opCcos=false, opCtan=false,
   opTsin=false, opTcos=false, opTtan=false,
   opNLog=false, opLogBTen=false, opSQRT=false, opE=false;
+  
+boolean piee = false;
 
 //Time Setup
 unsigned long T0, T1;
 unsigned long tT0, tT1;
 
+//Calculator constants
 const double pi = 3.14159265358979323846;
 const double e  = 2.718281828459045;
+int counter = 0;
+int keepTrack = 0;
 
 //Numbers Inputed
 int long num1=0, num2=0;
 int long num3=0;
 
+//Initialize buttons 10x2
 Bounce bouncer  = Bounce( BUTTON0 , 25 );
 Bounce bouncer1 = Bounce( BUTTON1 , 25 );
 Bounce bouncer2 = Bounce( BUTTON2 , 25 );
@@ -96,6 +118,16 @@ byte like[8] = {
   B11001,
   B11001,
   B11111,
+};
+byte disLike[8] = {
+  B00000,
+  B11111,
+  B11001,
+  B11001,
+  B11011,
+  B00100,
+  B00100,
+  B00000
 };
 byte squared[8] = {
   B01100,
@@ -125,6 +157,16 @@ byte squareRoot[8] = {
   B10100,
   B01100,
   B00100
+};
+byte pipi[8] = {
+  B00000,
+  B11111,
+  B01010,
+  B01010,
+  B01010,
+  B01010,
+  B01010,
+  B00000
 };
 byte p20[8] = {
   B10000,
@@ -215,7 +257,7 @@ void setup(){
   lcd.print("   Calculator");
   lcd.setCursor(13,1);
   lcd.write(6);
-  delay(2000);
+  delay(QHOLD);
   lcd.clear();
   start();
   lcd.setCursor(0,0);
@@ -233,6 +275,8 @@ void decChar(){
   lcd.createChar(6, squared);
   lcd.createChar(7, baseTen);
   lcd.createChar(8,squareRoot);
+  lcd.createChar(9,pipi);
+  lcd.createChar(10,disLike);
 }  //decChar
 
 void initialButtons(){
@@ -257,7 +301,7 @@ void start(){
   lcd.print("   SELECT AN  ");
   lcd.setCursor(1,1);
   lcd.print("    OPTION ");
-  delay(2000);
+  delay(QHOLD);
   lcd.clear();
   options();
   lcd.clear();
@@ -275,7 +319,7 @@ void options(){
   lcd.write(8);
   lcd.print("(");
   lcd.setCursor(1,1);
-  lcd.print("  B7)Ccos  B8)Ctan");
+  lcd.print("  B7)Ccos  B8)Ctan    *B=BUTTON*");
   scroll();
 }  //options
 
@@ -316,9 +360,9 @@ void loop()
 {
    buttonUpdate();
    char key = keypad.getKey();
-   /*************************************
-   * KEYPAD BUTTON READING W/ DEBOUNCING
-   **************************************/
+   /******************************
+   * KEYPAD READING W/ DEBOUNCING
+   *******************************/
    if(key != NO_KEY){
      if((key !='*')&&(key !='#')&&(key !='A')
          &&(key !='B')&&(key !='C')&&(key !='D'))
@@ -327,23 +371,24 @@ void loop()
           num1 = (num1*10) + int(key-'0');
           lcd.setCursor(0,0);
           lcd.print(num1);
-        }else if(beenHere && opDivide){
-          num2 = (num2*10) + int(key-'0');
-          lcd.print(num2);
+          counter++;
         }else if(beenHere && opLogBTen){
           lcd.setCursor(5,0);
           num2 = (num2*10) + int(key-'0');
           lcd.print(num2);
+          keepTrack++;
         }else if(beenHere && opSQRT){
           lcd.setCursor(2,0);
           num2 = (num2*10) + int(key-'0');
           lcd.print(num2);
+          keepTrack++;
         }else if( (beenHere && opNLog)
               ||  (beenHere && opE)  )
              {
                lcd.setCursor(3,0);
                num2 = (num2*10) + int(key-'0');
                lcd.print(num2);
+               keepTrack++;
         }else if( (beenHere && opTsin)
                 || (beenHere && opTcos) 
                 || (beenHere && opCtan)
@@ -351,17 +396,18 @@ void loop()
                 || (beenHere && opCsin)
                 || (beenHere && opTtan) )
                 {
-          lcd.setCursor(8,0);
-          num3 = (num3*10) + int(key-'0');
-          lcd.print(num3);
+                  lcd.setCursor(counter+5,0);
+                  num3 = (num3*10) + int(key-'0');
+                  lcd.print(num3);
+                  keepTrack++;
         }else if(beenHere){
           num2 = (num2*10) + int(key-'0');
-          lcd.setCursor(8,0);
+          lcd.setCursor(counter+1,0);
           lcd.print(num2);
+          keepTrack++;
         }
       }
       else if(key=='A'){
-         //lcd.setCursor(4,0);
          lcd.print("+");
          beenHere=true;
          opAddition=true;
@@ -378,9 +424,36 @@ void loop()
          beenHere=true;
          opDivide=true;
        }else if (key=='*'){
-         lcd.print(")");
+         lcd.write(9);
+         piee=true;
+         if( (beenHere && opTsin)
+            || (beenHere && opTcos) 
+            || (beenHere && opCtan)
+            || (beenHere && opCcos)
+            || (beenHere && opCsin)
+            || (beenHere && opTtan) )
+            {
+              num3*=pi;
+            }else if( 
+                  (beenHere && opNLog)
+              ||  (beenHere && opE)
+              ||  (beenHere) 
+              ||  (beenHere && opSQRT)
+              ||  (beenHere && opLogBTen) )
+             {
+               num2*=pi;
+             }
        }
        else if(key=='#'){
+         if(keepTrack == 0){
+           lcd.noBlink();
+           lcd.setCursor(0,1);
+           lcd.print(" bad input ");
+           lcd.write(10);
+           delay(QHOLD);
+           goto endThis;
+         }else{
+           lcd.noBlink();
            lcd.print("=");
            lcd.setCursor(0,1);
              if(opAddition){
@@ -392,49 +465,183 @@ void loop()
              }else if(opDivide){
                divide();
              }else if(opCsin){
-               lcd.print(C_SIN(double(num3), num1),13);
-               delay(DELAY);
-               showTime();
+               if(num1==0){
+                 if(piee==true){
+                   double x=C_SIN(double(num3), DEFPREC);
+                   Serial.println(x);
+                   if(x<0){
+                    x=ceil(x); 
+                   }else{
+                    x=floor(x);  
+                   }
+                   lcd.print(x,0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   lcd.print(C_SIN(double(num3), DEFPREC),LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }else{
+                 if(piee==true){
+                   double x=C_SIN(double(num3), DEFPREC);
+                   if(x<0){
+                    x=ceil(x); 
+                   }else{
+                    x=floor(x);  
+                   }
+                   lcd.print(x,0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   lcd.print(C_SIN(double(num3), num1),LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }
              }else if(opCcos){
-               lcd.print(C_COS(double(num3), num1),13);
-               delay(DELAY);
-               showTime();
+               if(num1==0){
+                 if(piee==true){
+                   double x=C_COS(double(num3), DEFPREC);
+                   lcd.print(x,0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   double x=C_COS(double(num3), DEFPREC);
+                   //x=floor(x);
+                   lcd.print(x,LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }else{
+                 if(piee==true){
+                   lcd.print(C_COS(double(num3), num1),0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   lcd.print(C_COS(double(num3), num1),LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }
              }else if(opTtan){
-               lcd.print(T_TAN(double(num3), num1),13);
-               delay(DELAY);
-               showTime();
+               if(num1==0){
+                   lcd.print(T_TAN(double(num3), DEFPREC),LCDIGITS);
+                   delay(DELAY);
+                   lcd.clear();
+                   lcd.setCursor(0,0);
+                   lcd.print("Time:");
+                   lcd.setCursor(0,1);
+                   lcd.print(tT1-tT0);
+                   lcd.print(" Milli Sec.");
+                   delay(DELAY);
+                 }else{
+                   lcd.print(T_TAN(double(num3), num1),LCDIGITS);
+                   delay(DELAY);
+                   lcd.clear();
+                   lcd.setCursor(0,0);
+                   lcd.print("Time:");
+                   lcd.setCursor(0,1);
+                   lcd.print(tT1-tT0);
+                   lcd.print(" Milli Sec.");
+                   delay(DELAY);
+                 }
              }else if(opTsin){
-               lcd.print(T_SIN(double(num3), num1),13);
-               delay(DELAY);
-               showTime();
+               if(num1==0){
+                 if(piee==true){
+                   double x=T_SIN(double(num3), DEFPREC);
+                   if(x<0){
+                    x=ceil(x); 
+                   }else{
+                    x=floor(x);  
+                   }
+                   lcd.print(x,0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   lcd.print(T_SIN(double(num3), DEFPREC),LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }else{
+                 if(piee==true){
+                   double x=T_SIN(double(num3), num1);
+                   if(x<0){
+                    x=ceil(x); 
+                   }else{
+                    x=floor(x);  
+                   }
+                   lcd.print(x,0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   lcd.print(T_SIN(double(num3), num1),LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }
              }else if(opTcos){
-               lcd.print(T_COS(double(num3), num1),13);
-               delay(DELAY);
-               showTime();
+               if(num1==0){
+                 if(piee==true){
+                   double x=T_COS(double(num3), DEFPREC);
+                   x=floor(x);
+                   lcd.print(x,0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   lcd.print(T_COS(double(num3), DEFPREC),LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }else{
+                 if(piee==true){
+                   double x=T_COS(double(num3), num1);
+                   x=floor(x);
+                   lcd.print(x,0);
+                   delay(DELAY);
+                   showTime();
+                 }else{
+                   lcd.print(T_COS(double(num3), num1),LCDIGITS);
+                   delay(DELAY);
+                   showTime();
+                 }
+               }
              }else if(opCtan){
-               double tangent;
-               lcd.print(C_TAN(double(num3), num1),13);
-               delay(DELAY);
-               lcd.clear();
-               lcd.setCursor(0,0);
-               lcd.print("Time:");
-               lcd.setCursor(0,1);
-               lcd.print(tT1-tT0);
-               lcd.print(" Milli Sec.");
-               delay(DELAY);
+               if(num1==0){
+                   lcd.print(C_TAN(double(num3), DEFPREC),LCDIGITS);
+                   delay(DELAY);
+                   lcd.clear();
+                   lcd.setCursor(0,0);
+                   lcd.print("Time:");
+                   lcd.setCursor(0,1);
+                   lcd.print(tT1-tT0);
+                   lcd.print(" Milli Sec.");
+                   delay(DELAY);
+                 }else{
+                   lcd.print(C_TAN(double(num3), num1),LCDIGITS);
+                   delay(DELAY);
+                   lcd.clear();
+                   lcd.setCursor(0,0);
+                   lcd.print("Time:");
+                   lcd.setCursor(0,1);
+                   lcd.print(tT1-tT0);
+                   lcd.print(" Milli Sec.");
+                   delay(DELAY);
+                 }
              }else if( opLogBTen ){
-               lcd.print(log(double(num2))/log(10),13);
+               lcd.print(log(double(num2))/log(10),LCDIGITS);
                delay(DELAY);
              }else if( opNLog ){
-               lcd.print(log(double(num2)),13);
+               lcd.print(log(double(num2)),LCDIGITS);
                delay(DELAY);
              }else if( opSQRT ){
-               lcd.print(sqrt(double(num2)),13);
+               lcd.print(sqrt(double(num2)),LCDIGITS);
                delay(DELAY);
              }else if( opE ){
-               lcd.print(pow(e,double(num2)),13);
+               lcd.print(pow(e,double(num2)),LCDIGITS);
                delay(DELAY);
              }
+             endThis:
             lcd.clear();
             lcd.setCursor(0,0);
             lcd.blink();
@@ -445,28 +652,29 @@ void loop()
             opDivide=opCcos=false;
             opTtan=opTsin=opTcos=opCtan= false;
             opNLog=opLogBTen=opSQRT=opE=false;
+            piee=false;counter=0;keepTrack=0;
+       }  //blahere
        }
    /***************************************
    * EXTERNAL BUTTON READING W/ DEBOUNCING
    ****************************************/
    }else if ( bouncer.read() ){
-     delay(150);
+     delay(250);
      lcd.print("Tsin(");
      beenHere=true;
      opTsin=true;
    }else if ( bouncer1.read() ){
-     delay(150);
+     delay(250);
      lcd.print("Tcos(");
      beenHere=true;
      opTcos=true;
    }else if ( bouncer2.read() ){
-     delay(150);
+     delay(250);
      lcd.print("Ttan(");
      beenHere=true;
      opTtan=true;
    }else if ( bouncer3.read() ){
-     //log base 10
-     delay(150);
+     delay(250);
      lcd.print("log");
      lcd.setCursor(3,0);
      lcd.write(7);
@@ -474,41 +682,30 @@ void loop()
      lcd.print("(");
      beenHere=true;
      opLogBTen=true;
-   }/*else if ( bouncer8.read() ){
-     delay(150);
-     lcd.print("ln(");
-     beenHere=true;
-     opNLog=true;
-   }*/else if ( bouncer5.read() ){
-     delay(150);
+   }else if ( bouncer5.read() ){
+     delay(250);
      lcd.print("Csin(");
      beenHere=true;
      opCsin=true;
    }else if ( bouncer6.read() ){
-     delay(150);
+     delay(250);
      lcd.print("Ccos(");
      beenHere=true;
      opCcos=true;
    }else if ( bouncer7.read() ){
-     delay(150);
+     delay(250);
      lcd.print("Ctan(");
      beenHere=true;
      opCtan=true;
    }else if ( bouncer4.read() ){
-     //square root
-     delay(150);
+     delay(250);
      lcd.setCursor(0,0);
      lcd.write(8);
      lcd.setCursor(1,0);
      lcd.print("(");
      beenHere=true;
      opSQRT=true;
-   }/*else if ( bouncer9.read() ){
-     delay(150);
-     lcd.print("e^(");
-     beenHere=true;
-     opE=true;
-   }*/
+   }
 }  //loop
 
 void sum(){
