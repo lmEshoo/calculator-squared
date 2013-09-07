@@ -9,8 +9,8 @@ The purpose of  Calculator^(2) was to recreate two widely used trigonometric alg
 Created by:
 
 - Lini Mestar ([https://github.com/lmEshoo](https://github.com/lmEshoo))
-- ...
-- ...
+- Jacob Getter
+- Matt Remick
 
 ##Calculator Hardware Contents##
 
